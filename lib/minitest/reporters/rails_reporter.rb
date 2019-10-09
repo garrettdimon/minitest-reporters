@@ -7,7 +7,7 @@ module Minitest
     #
     # @see https://github.com/seattlerb/minitest Minitest
 
-    class RailsReporter < DefaultReporter
+    class RailsReporter < BaseReporter
       include ANSI::Code
       include RelativePosition
 
