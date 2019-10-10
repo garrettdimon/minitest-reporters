@@ -196,10 +196,10 @@ module Minitest
             end
           end
 
-          if test_lines.any?
+          test_lines.reject! { |location, count| count.size == 1 }
 
+          if test_lines.any?
             problem_files = test_lines
-                          .reject { |location, count| count.size == 1 }
                           .sort_by { |location, count| location }
                           .sort_by { |location, count| count.size }
                           .reverse
@@ -238,9 +238,10 @@ module Minitest
             end
           end
 
+          failure_bits.reject! { |location, value| value[:count] == 1 }
+
           if failure_bits.any?
             problem_files = failure_bits
-                          .reject { |location, value| value[:count] == 1 }
                           .sort_by { |location, value| location }
                           .reverse
                           .sort_by { |location, value| value[:count] }
