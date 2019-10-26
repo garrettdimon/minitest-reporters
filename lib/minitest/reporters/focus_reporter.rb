@@ -210,8 +210,7 @@ module Minitest
 
               print white(count.to_s + " ")
               print gray(path + " ")
-              puts dark_gray(line_numbers.to_s)
-              puts dark_gray("➥  rails test #{path}")
+              puts dark_gray(line_numbers.to_s + " › rails test #{path}")
             end
             puts
           end
