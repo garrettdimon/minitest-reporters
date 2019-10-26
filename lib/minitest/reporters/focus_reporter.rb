@@ -32,15 +32,14 @@ module Minitest
 
       def initialize(options = {})
         super
-        @detailed_skip = options.fetch(:detailed_skip, true)
-        @slow_count = options.fetch(:slow_count, 0)
+        @show_test_command = options.fetch(:command, true)
+        @fast_fail = options.fetch(:fast_fail, false)
         @slow_suite_count = options.fetch(:slow_suite_count, 0)
         @slow_threshold = options.fetch(:slow_threshold, 0.0)
+        @slow_count = options.fetch(:slow_count, 0)
+        @options = options
         @suite_times = []
         @suite_start_times = {}
-        @fast_fail = options.fetch(:fast_fail, false)
-        @show_test_location = options.fetch(:location, false)
-        @options = options
       end
 
       def start
@@ -119,13 +118,11 @@ module Minitest
       end
 
       def print_failure(test)
+        return if test.skipped? && big_problems?
+
         message = message_for(test)
         unless message.nil? || message.strip == ''
           puts colored_for(result(test), message)
-          if @show_test_location
-            location = get_source_location(test)
-            puts "\n\n#{relative_path(location[0])}:#{location[1]}"
-          end
           puts
         end
       end
@@ -214,6 +211,7 @@ module Minitest
               print white(count.to_s + " ")
               print gray(path + " ")
               puts dark_gray(line_numbers.to_s)
+              puts dark_gray("➥  rails test #{path}")
             end
             puts
           end
@@ -388,20 +386,26 @@ module Minitest
           last_before_assertion.sub(/:in .*$/, '')
         end
 
+        def rerun_test_command(test)
+          location = get_source_location(test)
+          "rails test #{relative_path(location[0])}:#{location[1]}"
+        end
+
         def message_for(test)
           e = test.failure
           test_name = test.name.gsub('test_', '').gsub('_', ' ')
           message = dark_gray(test.failure.message)
           error_class = dark_gray("#{test.failure.class}:")
           affected_class = test_class(test)
-          failure_location = test.failure.location.gsub(Dir.pwd, '').gsub('/test/', '')
+          failure_location = gray(test.failure.location.gsub(Dir.pwd, '').gsub('/test/', ''))
+          test_command = dark_gray(" › " + rerun_test_command(test))
 
-          if test.skipped? && @detailed_skip
-            "Skipped: #{affected_class} #{test_name}\n#{failure_location}\n#{message}"
+          if test.skipped?
+            "Skipped › #{affected_class} · #{test_name}\n#{failure_location}#{test_command}\n#{message}"
           elsif test.error?
-            "Error: #{affected_class} #{test_name}\n#{failure_location}\n#{error_class}\n#{message}"
+            "Error › #{affected_class} · #{test_name}\n#{failure_location}#{test_command}\n#{error_class}\n#{message}"
           else
-            "Failure: #{affected_class} #{test_name}\n#{failure_location}\n#{error_class}\n#{message}"
+            "Failure › #{affected_class} · #{test_name}\n#{failure_location}#{test_command}\n#{error_class}\n#{message}"
           end
         end
 
