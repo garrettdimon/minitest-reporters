@@ -32,11 +32,13 @@ module Minitest
 
       def initialize(options = {})
         super
+        @detailed_skip = options.fetch(:detailed_skip, true)
         @show_test_command = options.fetch(:command, true)
         @fast_fail = options.fetch(:fast_fail, false)
+        @color = options.fetch(:color, true)
         @slow_suite_count = options.fetch(:slow_suite_count, 0)
-        @slow_threshold = options.fetch(:slow_threshold, 0.0)
-        @slow_count = options.fetch(:slow_count, 0)
+        @slow_threshold = options.fetch(:slow_threshold, 0.5)
+        @slow_count = options.fetch(:slow_count, 5)
         @options = options
         @suite_times = []
         @suite_start_times = {}
