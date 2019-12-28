@@ -420,7 +420,7 @@ module Minitest
         end
 
         def formatify(string, modifier)
-          color? ? "\e\[#{ modifier }m#{ string }#{ ANSI::Code::ENDCODE }" : string
+          color? ? "\e\[#{ modifier }m#{ string }#{ ::ANSI::Code::ENDCODE }" : string
         end
 
         def bold(string)
