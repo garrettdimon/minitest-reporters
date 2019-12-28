@@ -8,7 +8,6 @@ module Minitest
     # @see https://github.com/seattlerb/minitest Minitest
 
     class FocusReporter < BaseReporter
-      include ANSI::Code
       include RelativePosition
 
       BLACK         = '0;30'
@@ -420,7 +419,7 @@ module Minitest
         end
 
         def formatify(string, modifier)
-          color? ? "\e\[#{ modifier }m#{ string }#{ ::ANSI::Code::ENDCODE }" : string
+          color? ? "\e\[#{ modifier }m#{ string }\e[0m" : string
         end
 
         def bold(string)
