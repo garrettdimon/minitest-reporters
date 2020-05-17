@@ -38,9 +38,10 @@ module Minitest
         @show_test_command = options.fetch(:command, true)
         @fast_fail = options.fetch(:fast_fail, false)
         @color = options.fetch(:color, true)
-        @slow_suite_count = options.fetch(:slow_suite_count, 0)
+        @slow_suite_threshold = options.fetch(:slow_suite_threshold, 1.0)
+        @slow_suite_count = options.fetch(:slow_suite_count, 3)
         @slow_threshold = options.fetch(:slow_threshold, 0.5)
-        @slow_count = options.fetch(:slow_count, 5)
+        @slow_count = options.fetch(:slow_count, 3)
         @options = options
         @suite_times = []
         @suite_start_times = {}
@@ -136,11 +137,7 @@ module Minitest
 
       private
 
-        # Effectively a flag for "we've got bigger things to worry about than skipped tests or performance"
-        def big_problems?
-          failures? || errors?
-        end
-
+        # Prints each of the failed tests
         def failures_summary
           return if @fast_fail
 
@@ -182,7 +179,7 @@ module Minitest
 
               print skip(count.to_s + " ")
               print gray(path)
-              puts dark_gray(" › " + line_numbers.to_s)
+              puts dark_gray(" › " + line_numbers.join(' ') + " › rails test #{path}")
             end
             puts
           end
@@ -229,6 +226,8 @@ module Minitest
           end
         end
 
+        # Gives a nicely formatted summary of the lines of code that showed up
+        # more than once in any problematic tests
         def code_problem_areas_summary
           return unless big_problems?
 
@@ -269,6 +268,7 @@ module Minitest
           end
         end
 
+        # Provides a high-level performance summary of the full test suite
         def performance_summary
           total_duration = "%.2fs " % [total_time]
           average_durations = "(%.2f tests/s, %.2f assertions/s)" %
@@ -279,6 +279,7 @@ module Minitest
           puts
         end
 
+        # Provides counts for failures, errors, and skips if there are any
         def counts_summary
           tests_summary     = '%d tests & %d assertions' % [count, assertions]
           failures_summary  = failures? ? failure("#{failures} failures.") : nil
@@ -289,8 +290,9 @@ module Minitest
           puts colored_for(suite_result, tests_summary)
         end
 
+        # Takes the top @slow_count tests and displays them
         def slow_tests_summary
-          return if @slow_count == 0 || big_problems?
+          return if @slow_count.zero? || big_problems? || skips?
 
           slow_tests = tests
                         .sort_by(&:time)
@@ -299,7 +301,6 @@ module Minitest
                         .delete_if {|t| t.time < @slow_threshold }
           # #<Minitest::Result:0x00007fd90e45afa8 @NAME="test_should_get_edit_plan_page", @failures=[], @assertions=1, @klass="PlansControllerTest", @time=0.14770399988628924, @source_location=["/Users/garrettdimon/Work/fireside/test/controllers/plans_controller_test.rb", 21]>
           if slow_tests.any?
-            puts
             slow_tests.each do |test|
               test_time = "%.2fs" % [test.time]
               test_name = " %s - %s" % [test.klass, test.name.gsub('_', ' ').gsub('test ', '')]
@@ -314,12 +315,21 @@ module Minitest
         end
 
         def slow_suite_summary
-          return if @slow_suite_count == 0 || big_problems?
+          return if @slow_suite_count.zero? || big_problems? || skips?
 
-          slow_suites = @suite_times.sort_by { |x| x[1] }.reverse.take(@slow_suite_count)
+          # puts @suite_times.inspect
+
+          slow_suites = @suite_times
+                          .sort_by { |x| x[1] }
+                          .reverse
+                          .take(@slow_suite_count)
+                          .delete_if {|t| t[1] < @slow_suite_threshold }
 
           slow_suites.each do |slow_suite|
-            puts "%.2fs %s" % [slow_suite[1], slow_suite[0]]
+            test_time = "%.2fs " % [slow_suite[1]]
+            suite = slow_suite[0]
+            print white(test_time)
+            puts suite
           end
           puts
         end
@@ -372,6 +382,13 @@ module Minitest
           skips > 0
         end
 
+        # Effectively a flag for "we've got bigger things to worry about than skipped tests or performance"
+        def big_problems?
+          failures? || errors?
+        end
+
+        # Determines the most significant level of issues for the suite as a
+        # whole in order to determine the the color to use for the suite summary
         def suite_result
           case
           when failures > 0; :failure
@@ -399,7 +416,7 @@ module Minitest
           last_before_assertion.sub(/:in .*$/, '')
         end
 
-        def rerun_test_command(test)
+        def command_to_rerun_test(test)
           location = get_source_location(test)
           "rails test #{relative_path(location[0])}:#{location[1]}"
         end
@@ -411,7 +428,7 @@ module Minitest
           error_class = dark_gray("#{test.failure.class}:")
           affected_class = test_class(test)
           failure_location = gray(test.failure.location.gsub(Dir.pwd, '').gsub('/test/', ''))
-          test_command = dark_gray(" › " + rerun_test_command(test))
+          test_command = dark_gray(" › " + command_to_rerun_test(test))
 
           if test.skipped?
             "Skipped › #{affected_class} · #{test_name}\n#{failure_location}#{test_command}\n#{message}"
