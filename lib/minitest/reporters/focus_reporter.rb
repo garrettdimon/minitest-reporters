@@ -1,11 +1,14 @@
 module Minitest
   module Reporters
-    # A reporter identical to the standard Minitest reporter except with more
-    # colors.
+    # A reporter focused on a "don't make me think" approach that emphasizes
+    # which areas need the most attention.
     #
-    # Based upon Ryan Davis of Seattle.rb's Minitest (MIT License).
+    # It prioritizes results by giving the most visual importance to the most
+    # significant problems. For instance, when there are exceptions or failures,
+    # it doesn't show skipped tests or performance information.
     #
-    # @see https://github.com/seattlerb/minitest Minitest
+    # It also groups errors based on file so that it can present a summary of
+    # the most problematic files at the end.
 
     class FocusReporter < BaseReporter
       include RelativePosition
@@ -49,6 +52,7 @@ module Minitest
       end
 
       def on_start
+        # Blank line for whitespace and readability.
         puts
         # puts("# Running tests with run options %s:" % options[:args])
         # puts
@@ -115,6 +119,8 @@ module Minitest
         test_problem_areas_summary
         code_problem_areas_summary
         skipped_summary
+
+        # Prints a color reference for context
         # color_options_summary
       end
 
@@ -130,6 +136,7 @@ module Minitest
 
       private
 
+        # Effectively a flag for "we've got bigger things to worry about than skipped tests or performance"
         def big_problems?
           failures? || errors?
         end
@@ -142,6 +149,7 @@ module Minitest
           end
         end
 
+        # Gives a nicely formatted view of skipped tests
         def skipped_summary
           return if @fast_fail || skipped_tests.empty? || big_problems?
 
@@ -158,12 +166,14 @@ module Minitest
             end
           end
 
+          skipped_lines.reject! { |location, count| count.size == 1 }
+
           if skipped_lines.any?
             problem_files = skipped_lines
                           .sort_by { |location, count| location }
                           .sort_by { |location, count| count.size }
                           .reverse
-                          .take(5)
+                          .take(3)
 
             puts skip('Skipped Tests:')
             problem_files.each do |path, line_numbers|
@@ -171,13 +181,15 @@ module Minitest
               line_numbers.sort!
 
               print skip(count.to_s + " ")
-              print gray(path + " ")
-              puts dark_gray(line_numbers.to_s)
+              print gray(path)
+              puts dark_gray(" › " + line_numbers.to_s)
             end
             puts
           end
         end
 
+        # Gives a list of test files with the most issues sorted by issue count
+        # and also provides the rails command to run the tests in just that file
         def test_problem_areas_summary
           return unless big_problems?
 
@@ -203,15 +215,15 @@ module Minitest
                           .reverse
                           .take(3)
 
-            puts failure('Problematic Tests:')
+            puts failure('Problematic Files:')
             problem_files.each do |path, line_numbers|
               count = line_numbers.size
 
               line_numbers.sort!
 
               print white(count.to_s + " ")
-              print gray(path + " ")
-              puts dark_gray(line_numbers.to_s + " › rails test #{path}")
+              print gray(path)
+              puts dark_gray(" › " + line_numbers.join(' ') + " › rails test #{path}")
             end
             puts
           end
@@ -290,14 +302,15 @@ module Minitest
             puts
             slow_tests.each do |test|
               test_time = "%.2fs" % [test.time]
-              test_name = " %s - %s" % [test.name, test.klass]
-              test_location = "      %s:%s" % [test.source_location[0], test.source_location[1]]
+              test_name = " %s - %s" % [test.klass, test.name.gsub('_', ' ').gsub('test ', '')]
+              test_location = "      %s:%s" % [test.source_location[0].gsub(Dir.pwd, ''), test.source_location[1]]
 
               print white(test_time)
               puts test_name
               puts dark_gray(test_location)
             end
           end
+          puts
         end
 
         def slow_suite_summary
